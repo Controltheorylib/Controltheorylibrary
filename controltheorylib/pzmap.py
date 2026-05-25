@@ -11,7 +11,7 @@ my_template = TexTemplate()
 my_template.add_to_preamble(r"\usepackage{amsmath}")  # Add required packages
 
 class PoleZeroMap(VGroup):
-    def __init__(self, system, x_range=None, y_range=None, dashed_axis=True, 
+    def __init__(self, system, x_range=None, y_range=None, dashed_axis=False, 
                  y_axis_label=None, x_axis_label=None,
                  font_size_labels=28, markers_size=0.15, use_math_tex_labels=True, **kwargs):
         """
@@ -288,22 +288,22 @@ class PoleZeroMap(VGroup):
         
         # Plot zeros (blue circles)
         zero_markers = [
-            Circle(radius=self.markers_size, color=BLUE).move_to(self.axis.n2p(complex(x, y))) 
+            Circle(radius=self.markers_size, color=BLUE, stroke_width=8).move_to(self.axis.n2p(complex(x, y))) 
             for x, y in self.zero_coords
         ]
         self.zeros = VGroup(*zero_markers)
         
         # Plot poles (red crosses)
         pole_markers = [
-            Cross(scale_factor=self.markers_size, color=RED).move_to(self.axis.n2p(complex(x, y))) 
+            Cross(scale_factor=self.markers_size, color=RED, stroke_width=12).move_to(self.axis.n2p(complex(x, y))) 
             for x, y in self.pole_coords
         ]
         self.poles = VGroup(*pole_markers)
         
         self.x_ticks = self._create_ticks(self.axis, orientation="horizontal")
         self.y_ticks = self._create_ticks(self.axis, orientation="vertical")
-        self.x_tick_labels = self.create_tick_labels(self.axis, orientation="horizontal")
-        self.y_tick_labels = self.create_tick_labels(self.axis, orientation="vertical")  
+        self.x_tick_labels = self._create_tick_labels(self.axis, orientation="horizontal")
+        self.y_tick_labels = self._create_tick_labels(self.axis, orientation="vertical")  
 
         # Add all components to the group
         self.add(self.axis, self.zeros, self.poles, self.box, self.x_axis, self.y_axis, 
@@ -621,4 +621,18 @@ class PoleZeroMap(VGroup):
         self.title_text.next_to(self.axis, UP, buff=0.2)
         self.add(self.title_text)
         self.basecomponents.add(self.title_text)
+        return self
+
+    def scale(self, scale_factor, **kwargs):
+        """
+        Scale the PoleZeroMap group, ensuring stroke widths of components (markers, axes, box, ticks)
+        are scaled proportionally.
+        """
+        super().scale(scale_factor, **kwargs)
+        def scale_stroke(mob, factor):
+            if hasattr(mob, "get_stroke_width") and hasattr(mob, "set_stroke"):
+                mob.set_stroke(width=mob.get_stroke_width() * factor)
+            for sub in mob.submobjects:
+                scale_stroke(sub, factor)
+        scale_stroke(self, scale_factor)
         return self
