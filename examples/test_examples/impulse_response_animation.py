@@ -1,6 +1,6 @@
 from manim import *
 from controltheorylib import *
-import numpy as np
+import sympy as sp
 
 class ImpulseResponseAnimation(Scene):
     def construct(self):
@@ -48,26 +48,16 @@ class ImpulseResponseAnimation(Scene):
         ir_title = Text("Impulse Response g(t)", font_size=20)
         ir_title.next_to(axes, UP, buff=0.4)
         
-        # 4. Define Value Tracker for Dynamic Updates
+        # 4. Define Value Tracker for Dynamic Updates and Create Response Object
         k_tracker = ValueTracker(10.0)
         
-        # Analytical formula for the impulse response of G(s) = 1 / (ms^2 + cs + k)
-        # with m=1, c=1, and dynamic k
-        def impulse_response_val(t, k_val):
-            m, c = 1.0, 1.0
-            alpha = c / (2.0 * m)
-            omega_d_sq = k_val / m - alpha**2
-            if omega_d_sq <= 0:
-                # Overdamped/critically damped case (fallback)
-                omega_d = np.sqrt(abs(omega_d_sq))
-                return (1.0 / (m * omega_d)) * np.exp(-alpha * t) * np.sinh(omega_d * t)
-            else:
-                omega_d = np.sqrt(omega_d_sq)
-                return (1.0 / (m * omega_d)) * np.exp(-alpha * t) * np.sin(omega_d * t)
+        # Define the transfer function symbols and create the symbolic ImpulseResponse
+        s, k_sym = sp.symbols('s k')
+        ir = ImpulseResponse(1 / (s**2 + s + k_sym), method="symbolic")
 
         # Dynamic curve redraws automatically as k_tracker value changes
         curve = always_redraw(lambda: axes.plot(
-            lambda t: impulse_response_val(t, k_tracker.get_value()),
+            lambda t: ir(t, k=k_tracker.get_value()),
             x_range=[0, 10],
             color=YELLOW,
             stroke_width=3
