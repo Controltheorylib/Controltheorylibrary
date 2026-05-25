@@ -165,9 +165,9 @@ def springdamper(start=ORIGIN, end=UP * 3,
 
     if inline:
         # Both at same position
-        spring = spring(start=start, end=end, num_coils=num_coils,
+        spring_mob = spring(start=start, end=end, num_coils=num_coils,
                         coil_width=coil_width, type=type, **kwargs)
-        damper = damper(start=start, end=end, width=width,
+        damper_mob = damper(start=start, end=end, width=width,
                         fluid_color=fluid_color, **kwargs)
     else:
         # Shift each component along perpendicular vector
@@ -175,15 +175,15 @@ def springdamper(start=ORIGIN, end=UP * 3,
         spring_shift = -perp_dir * offset
         damper_shift = perp_dir * offset
 
-        spring = spring(start=start, end=end, num_coils=num_coils,
+        spring_mob = spring(start=start, end=end, num_coils=num_coils,
                         coil_width=coil_width, type=type, **kwargs)
-        damper = damper(start=start, end=end, width=width,
+        damper_mob = damper(start=start, end=end, width=width,
                         fluid_color=fluid_color, **kwargs)
 
-        spring.shift(spring_shift)
-        damper.shift(damper_shift)
+        spring_mob.shift(spring_shift)
+        damper_mob.shift(damper_shift)
 
-    return VGroup(spring, damper)
+    return VGroup(spring_mob, damper_mob)
     
 def fixed_world(start=2*LEFT, end=2*RIGHT, spacing=None, mirror=False, line_or="right", diag_line_length=0.3, **kwargs):
     """

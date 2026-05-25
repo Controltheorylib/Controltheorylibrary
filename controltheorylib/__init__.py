@@ -7,4 +7,5 @@ from .mech_vis import fixed_world
 from .mech_vis import rect_mass
 from .mech_vis import circ_mass
 from .mech_vis import damper
+from .mech_vis import springdamper
 
