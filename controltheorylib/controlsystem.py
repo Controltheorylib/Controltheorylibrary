@@ -50,15 +50,17 @@ class ControlBlock(VGroup):
             "font_size": None,
             "tex_template": None,
             "color": WHITE,
+            "fill_color": None,
+            "port_color": BLUE,
+            "port_size": 0.005,
             "label_color": None,
             "block_width": 2.0,
             "block_height": 1.0,
             "summing_size": 0.6,
             "width_font_ratio": 0.3,
-            "stroke_width":0.5,
+            "stroke_width": 0.5,
             "height_font_ratio": 0.5,
             "label": ""
-
         }
         
         # Type-specific defaults
@@ -84,6 +86,12 @@ class ControlBlock(VGroup):
                 "input_names": ["in_left"],  # Default input port names
                 "output_names": ["out_right"],  # Default output port names
                 "extra_ports": False  # Whether to add secondary ports
+            })
+
+        if block_type == "gain":
+            type_params.update({
+                "block_width": 1.0,
+                "block_height": 1.0,
             })
             
         self.params = default_params | type_params | (params or {})  # Merge with user params
@@ -125,18 +133,32 @@ class ControlBlock(VGroup):
         self.label.scale(self.params["label_scale"])
 
         # Create background shape
+        fill_color = self.params["fill_color"] if self.params["fill_color"] is not None else self.params["color"]
+        
         if block_type == "summing_junction":
             self.background = Circle(
                 radius=self.params["summing_size"]/2,
                 fill_opacity=self.params["fill_opacity"], 
+                fill_color=fill_color,
                 color=self.params["color"],
                 stroke_width=self.params["stroke_width"]
             )
+        elif block_type == "gain":
+            self.background = Triangle(
+                fill_opacity=self.params["fill_opacity"],
+                fill_color=fill_color,
+                color=self.params["color"],
+                stroke_width=self.params["stroke_width"]
+            )
+            self.background.rotate(-PI/2)
+            self.background.stretch_to_fit_width(self.params["block_width"])
+            self.background.stretch_to_fit_height(self.params["block_height"])
         else:
             self.background = Rectangle(
                 width=self.params["block_width"],
                 height=self.params["block_height"],
                 fill_opacity=self.params["fill_opacity"],
+                fill_color=fill_color,
                 color=self.params["color"],
                 stroke_width=self.params["stroke_width"]
             )
@@ -148,12 +170,17 @@ class ControlBlock(VGroup):
         {
             "input": self._create_input,
             "transfer_function": self._create_transfer_function,
-            "summing_junction": self._create_summing_junction
+            "summing_junction": self._create_summing_junction,
+            "gain": self._create_gain
         }[block_type]()
         
         self.move_to(position)
 
     def _create_input(self):
+        self.add_port("out", RIGHT)
+
+    def _create_gain(self):
+        self.add_port("in", LEFT)
         self.add_port("out", RIGHT)
 
     def _create_transfer_function(self):
@@ -221,24 +248,17 @@ class ControlBlock(VGroup):
         
         # Add signs if not hidden
         if not self.params.get("hide_labels", True):
-            # Create sign mapping for the first two inputs
-            if len(input_names) >= 1 and "input1_sign" in self.params:
-                tex = MathTex(self.params["input1_sign"]).scale(0.7)
-                direction = self.params.get("input1_dir", LEFT)
-                tex.next_to(self.input_ports[input_names[0]], -direction, buff=0.1)
-                self.add(tex)
-            
-            if len(input_names) >= 2 and "input2_sign" in self.params:
-                tex = MathTex(self.params["input2_sign"]).scale(0.7)
-                direction = self.params.get("input2_dir", DOWN)
-                tex.next_to(self.input_ports[input_names[1]], -direction, buff=0.1)
-                self.add(tex)
+            for i, name in enumerate(input_names, 1):
+                sign_key = f"input{i}_sign"
+                if sign_key in self.params:
+                    tex = MathTex(self.params[sign_key]).scale(0.7)
+                    direction = input_dirs[i-1]
+                    tex.next_to(self.input_ports[name], -direction, buff=0.1)
+                    self.add(tex)
 
     def add_port(self, name, direction):
         """Adds a port with size scaled to block type"""
-        port_size = 0.0005
-
-        port = Dot(radius=port_size, color=BLUE).next_to(
+        port = Dot(radius=self.params["port_size"], color=self.params["port_color"]).next_to(
             self.background,
             direction,
             buff=0
