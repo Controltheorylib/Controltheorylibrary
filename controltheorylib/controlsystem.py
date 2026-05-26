@@ -45,20 +45,20 @@ class ControlBlock(VGroup):
         # Default parameters
         default_params = {
             "use_mathtex": False,
-            "fill_opacity": 0.2,
+            "fill_opacity": 1.0,
             "label_scale": None,
             "font_size": None,
             "tex_template": None,
             "color": WHITE,
-            "fill_color": None,
+            "fill_color": "#e2e8f0",
             "port_color": BLUE,
             "port_size": 0.005,
-            "label_color": None,
+            "label_color": BLACK,
             "block_width": 2.0,
             "block_height": 1.0,
             "summing_size": 0.6,
             "width_font_ratio": 0.3,
-            "stroke_width": 0.5,
+            "stroke_width": 0,
             "height_font_ratio": 0.5,
             "label": ""
         }
@@ -76,7 +76,8 @@ class ControlBlock(VGroup):
                 "input2_sign": "+",
                 "hide_labels": True,
                 "width_font_ratio": 0.2, 
-                "height_font_ratio": 0.2
+                "height_font_ratio": 0.2,
+                "fill_color": "#cbd5e1"
             })
 
         if block_type == "transfer_function":
@@ -96,23 +97,13 @@ class ControlBlock(VGroup):
             
         self.params = default_params | type_params | (params or {})  # Merge with user params
 
-        # Calculate automatic font sizes if not specified
-        if block_type == "summing_junction":
-            size = self.params["summing_size"]
-            auto_font_size = size * 45  # Base scaling for circles
-        else:
-            width = self.params["block_width"]
-            height = self.params["block_height"]
-            auto_font_size = min(width * self.params["width_font_ratio"], 
-                                height * self.params["height_font_ratio"]) * 75
-            
         # Set font sizes if not explicitly provided
         if self.params["font_size"] is None:
-            self.params["font_size"] = auto_font_size
+            self.params["font_size"] = 30
 
         # Calculate label scale if not specified
         if self.params["label_scale"] is None:
-            self.params["label_scale"] = auto_font_size / 90
+            self.params["label_scale"] = 1.0
 
         if self.params["label_color"] is None:
             self.params["label_color"] = self.params["color"]
@@ -121,9 +112,9 @@ class ControlBlock(VGroup):
             self.label = MathTex(
                 self.params["label"],
                 font_size=self.params["font_size"],
-                tex_template=self.params["tex_template"],
-                color=self.params["label_color"]
+                tex_template=self.params["tex_template"]
             )
+            self.label.set_color(self.params["label_color"])
         else:
             self.label = Text(
                 self.params["label"],
@@ -251,9 +242,12 @@ class ControlBlock(VGroup):
             for i, name in enumerate(input_names, 1):
                 sign_key = f"input{i}_sign"
                 if sign_key in self.params:
-                    tex = MathTex(self.params[sign_key]).scale(0.7)
+                    tex = MathTex(self.params[sign_key], stroke_width=1.5).scale(0.5)
+                    tex.set_color("#333333")
                     direction = input_dirs[i-1]
-                    tex.next_to(self.input_ports[name], -direction, buff=0.1)
+                    sign_val = self.params[sign_key]
+                    buff_val = 0.10 if "-" in sign_val else 0.05
+                    tex.next_to(self.input_ports[name], -direction, buff=buff_val)
                     self.add(tex)
 
     def add_port(self, name, direction):
@@ -352,7 +346,8 @@ class Connection(VGroup):
         
         # Add label if provided
         if label and use_math_tex==True:
-            self.label = MathTex(label, font_size=label_font_size,color=color)
+            self.label = MathTex(label, font_size=label_font_size)
+            self.label.set_color(color)
             self.label.next_to(self.arrow.get_center(), UP, buff=buff)
             self.add(self.label)
         
@@ -711,9 +706,13 @@ class ControlSystem:
                 horizontal_distance = abs(start_out[0] - end[0])
 
             mid1 = start + horizontal_distance*LEFT
+            arrow_dir = end - mid1
+            arrow_dir_norm = arrow_dir / np.linalg.norm(arrow_dir) if np.linalg.norm(arrow_dir) > 0 else np.array([1.0, 0.0, 0.0])
+            end_adjusted = end - arrow_dir_norm * 0.05
             segments = [
-            Line(start_out, mid1, color=color, **kwargs),
-            Arrow(mid1, end, tip_length=0.2, buff=0, color=color, **kwargs)]
+                Line(start_out, mid1, color=color, **kwargs),
+                Arrow(mid1, end_adjusted, tip_length=0.2, buff=0, color=color, **kwargs)
+            ]
         if source_dir == "RIGHT":
             start_out = start + rel_start_offset if rel_start_offset is not None else start
             end = end + rel_end_offset if rel_end_offset is not None else end
@@ -723,10 +722,14 @@ class ControlSystem:
 
             mid1 = start_out + vertical_distance*DOWN
             mid2 = mid1 + horizontal_distance*LEFT
+            arrow_dir = end - mid2
+            arrow_dir_norm = arrow_dir / np.linalg.norm(arrow_dir) if np.linalg.norm(arrow_dir) > 0 else np.array([1.0, 0.0, 0.0])
+            end_adjusted = end - arrow_dir_norm * 0.05
             segments = [
-            Line(start_out, mid1, color=color, **kwargs),
-            Line(mid1, mid2, color=color, **kwargs),
-            Arrow(mid2, end, tip_length=0.2, buff=0, color=color, **kwargs)]
+                Line(start_out, mid1, color=color, **kwargs),
+                Line(mid1, mid2, color=color, **kwargs),
+                Arrow(mid2, end_adjusted, tip_length=0.2, buff=0, color=color, **kwargs)
+            ]
         if source_dir == "DOWN":
             start_out = start + rel_start_offset if rel_start_offset is not None else start
             end = end + rel_end_offset if rel_end_offset is not None else end
@@ -736,10 +739,13 @@ class ControlSystem:
 
             mid1 = start_out + vertical_distance*DOWN
             mid2 = mid1 + horizontal_distance*LEFT
+            arrow_dir = end - mid2
+            arrow_dir_norm = arrow_dir / np.linalg.norm(arrow_dir) if np.linalg.norm(arrow_dir) > 0 else np.array([1.0, 0.0, 0.0])
+            end_adjusted = end - arrow_dir_norm * 0.05
             segments = [
                 Line(start_out,mid1, color=color, **kwargs),
                 Line(mid1, mid2, color=color, **kwargs),
-                Arrow(mid2, end, tip_length=0.2, buff=0, color=color, **kwargs)
+                Arrow(mid2, end_adjusted, tip_length=0.2, buff=0, color=color, **kwargs)
             ]
         
         if source_dir == "UP":
@@ -751,10 +757,13 @@ class ControlSystem:
 
             mid1 = start_out + vertical_distance*UP
             mid2 = mid1 + horizontal_distance*LEFT
+            arrow_dir = end - mid2
+            arrow_dir_norm = arrow_dir / np.linalg.norm(arrow_dir) if np.linalg.norm(arrow_dir) > 0 else np.array([1.0, 0.0, 0.0])
+            end_adjusted = end - arrow_dir_norm * 0.05
             segments = [
                 Line(start_out,mid1, color=color, **kwargs),
                 Line(mid1, mid2, color=color, **kwargs),
-                Arrow(mid2, end, tip_length=0.2, buff=0, color=color, **kwargs)
+                Arrow(mid2, end_adjusted, tip_length=0.2, buff=0, color=color, **kwargs)
             ]
 
 
@@ -847,10 +856,13 @@ class ControlSystem:
             if horizontal_distance is None:
                 horizontal_distance = abs(start[0] - end[0])
                 mid1 = start + horizontal_distance*RIGHT
+                arrow_dir = end - mid1
+                arrow_dir_norm = arrow_dir / np.linalg.norm(arrow_dir) if np.linalg.norm(arrow_dir) > 0 else np.array([1.0, 0.0, 0.0])
+                end_adjusted = end - arrow_dir_norm * 0.05
                 segments = [
-                Line(start, mid1, color=color, **kwargs),
-                Arrow(mid1, end, tip_length=0.2, buff=0, color=color, **kwargs)
-            ]
+                    Line(start, mid1, color=color, **kwargs),
+                    Arrow(mid1, end_adjusted, tip_length=0.2, buff=0, color=color, **kwargs)
+                ]
         # Normalize and compare to standard directions
         if np.linalg.norm(direction_vector) > 0:
             direction_vector = direction_vector / np.linalg.norm(direction_vector)
@@ -877,10 +889,12 @@ class ControlSystem:
             mid1 = start+vertical_distance
             if horizontal_distance is None:
                 horizontal_distance = abs(mid1[0] - end[0])
+            arrow_dir = end - mid1
+            arrow_dir_norm = arrow_dir / np.linalg.norm(arrow_dir) if np.linalg.norm(arrow_dir) > 0 else np.array([1.0, 0.0, 0.0])
+            end_adjusted = end - arrow_dir_norm * 0.05
             segments = [
-            
-                Arrow(mid1, end, tip_length=0.2, buff=0, color=color, **kwargs), 
-                Line(start_out, mid1, color=color, **kwargs)
+                Line(start_out, mid1, color=color, **kwargs),
+                Arrow(mid1, end_adjusted, tip_length=0.2, buff=0, color=color, **kwargs)
             ]
             label_pos = mid1 + DOWN * 0.2
         elif input_dir == "UP":
@@ -892,10 +906,13 @@ class ControlSystem:
                 if horizontal_distance is None:
                     horizontal_distance = abs(mid1[0] - end[0])
                 mid2 = mid1 + RIGHT * horizontal_distance
+                arrow_dir = end - mid2
+                arrow_dir_norm = arrow_dir / np.linalg.norm(arrow_dir) if np.linalg.norm(arrow_dir) > 0 else np.array([1.0, 0.0, 0.0])
+                end_adjusted = end - arrow_dir_norm * 0.05
                 segments = [
+                    Line(start_out, mid1, color=color, **kwargs),
                     Line(mid1, mid2, color=color, **kwargs),
-                    Arrow(mid2, end, tip_length=0.2, buff=0, color=color, **kwargs),
-                    Line(start_out, mid1, color=color, **kwargs)
+                    Arrow(mid2, end_adjusted, tip_length=0.2, buff=0, color=color, **kwargs)
                 ]
                 label_pos = mid2 + UP * 0.2
             if start[1] > end[1]:
@@ -904,9 +921,12 @@ class ControlSystem:
                 if horizontal_distance is None:
                     horizontal_distance = abs(mid1[0] - end[0])
                 mid1 = start_out + RIGHT * horizontal_distance
+                arrow_dir = end - mid1
+                arrow_dir_norm = arrow_dir / np.linalg.norm(arrow_dir) if np.linalg.norm(arrow_dir) > 0 else np.array([1.0, 0.0, 0.0])
+                end_adjusted = end - arrow_dir_norm * 0.05
                 segments = [
-                    Arrow(mid1, end, tip_length=0.2, buff=0, color=color, **kwargs),
-                    Line(start_out, mid1, color=color, **kwargs)
+                    Line(start_out, mid1, color=color, **kwargs),
+                    Arrow(mid1, end_adjusted, tip_length=0.2, buff=0, color=color, **kwargs)
                 ]
                 label_pos = mid1 + UP * 0.2
 
@@ -918,9 +938,12 @@ class ControlSystem:
             mid1 = start_out + UP * vertical_distance
             if horizontal_distance is None:
                 horizontal_distance = abs(mid1[0] - end[0])
+            arrow_dir = end - mid1
+            arrow_dir_norm = arrow_dir / np.linalg.norm(arrow_dir) if np.linalg.norm(arrow_dir) > 0 else np.array([1.0, 0.0, 0.0])
+            end_adjusted = end - arrow_dir_norm * 0.05
             segments = [
-                Arrow(mid1, end, tip_length=0.2, buff=0, color=color, **kwargs),
-                Line(start_out, mid1, color=color, **kwargs)
+                Line(start_out, mid1, color=color, **kwargs),
+                Arrow(mid1, end_adjusted, tip_length=0.2, buff=0, color=color, **kwargs)
             ]
             label_pos = mid1 + DOWN * 0.2
         
@@ -981,10 +1004,10 @@ class ControlSystem:
     
     def animate_signals(self, scene, *blocks,
                     spawn_interval=0.5,
-                    signal_speed=0.8,
+                    signal_speed=1.5,
                     duration=10.0,
                     color=YELLOW, feedback_color=YELLOW, feedforward_color=YELLOW,
-                    radius=0.12,
+                    radius=0.08,
                     include_input=True,
                     include_output=True,
                     include_feedback=True, include_feedforward=True, feedforward_delay=None,feedback_delay=None):
@@ -1111,8 +1134,11 @@ class ControlSystem:
         if feedforward_delay is None and feedforward_paths:
             ff_start = feedforward_paths[0].get_start()
             main_start = main_paths[0].get_start() if main_paths else ff_start
-            dist = np.linalg.norm(ff_start - main_start-2)
-            feedforward_delay = (dist) / signal_speed
+            dist = np.linalg.norm(ff_start - main_start)
+            if dist < 1.0:
+                feedforward_delay = 0
+            else:
+                feedforward_delay = dist / signal_speed
         elif feedforward_delay is None:
             feedforward_delay = 0
         else:

@@ -26,7 +26,7 @@ class control_diagram_v1(Scene):
                 "block_height": 0.6,
                 "output_dirs": [RIGHT, UP],
                 "output_names": ["out_r", "out_up"],
-                "color": WHITE
+                "fill_color": "#bfdbfe"
             }
         )
         
@@ -38,8 +38,7 @@ class control_diagram_v1(Scene):
                 "input2_dir": DOWN,
                 "input1_sign": "+",
                 "input2_sign": "-",
-                "hide_labels": False,
-                "color": WHITE
+                "hide_labels": False
             }
         )
         sum1.scale(0.7)
@@ -50,9 +49,7 @@ class control_diagram_v1(Scene):
             params={
                 "label": "C_{fb}(s)",
                 "use_mathtex": True,
-                "color": ORANGE,
-                "fill_color": DARK_GRAY,
-                "fill_opacity": 0.4
+                "fill_color": ORANGE
             }
         )
         
@@ -64,21 +61,18 @@ class control_diagram_v1(Scene):
                 "input2_dir": UP,
                 "input1_sign": "+",
                 "input2_sign": "+",
-                "hide_labels": False,
-                "color": WHITE
+                "hide_labels": False
             }
         )
         sum2.scale(0.7)
         
-        # Plant P(s)
+        # Plant G(s)
         Plant = cs.add_block(
             "Plant", "transfer_function", 3.5 * RIGHT,
             params={
-                "label": "P(s)",
+                "label": "G(s)",
                 "use_mathtex": True,
-                "color": GREEN,
-                "fill_color": DARK_GRAY,
-                "fill_opacity": 0.4
+                "fill_color": GREEN
             }
         )
         
@@ -88,15 +82,18 @@ class control_diagram_v1(Scene):
             params={
                 "label": "C_{ff}(s)",
                 "use_mathtex": True,
-                "color": YELLOW,
-                "fill_color": DARK_GRAY,
-                "fill_opacity": 0.4
+                "fill_color": YELLOW
             }
         )
         
         # 3. Add Connections
         r1_con = cs.connect(setpoint, "out_r", sum1, "in_left")
         e1_con = cs.connect(sum1, "out_right", C_fb, "in_left", label="e(s)")
+        
+        # Direct connection (active when feedforward is faded out)
+        u_direct = cs.connect(C_fb, "out_right", Plant, "in_left")
+        
+        # Connections with summing junction 2 (active when feedforward is active)
         u1_con = cs.connect(C_fb, "out_right", sum2, "in_left")
         u2_con = cs.connect(sum2, "out_right", Plant, "in_left")
         
@@ -113,7 +110,7 @@ class control_diagram_v1(Scene):
         feedforward_out = cs.add_feedforward_path(C_ff, "out_right", sum2, "in_top")
         
         # 4. Play Animations
-        # Fade in the feedback loop first
+        # Fade in the feedback loop first (using the direct connection u_direct)
         self.play(
             FadeIn(setpoint),
             FadeIn(sum1),
@@ -126,12 +123,7 @@ class control_diagram_v1(Scene):
             run_time=1
         )
         self.play(
-            FadeIn(u1_con),
-            FadeIn(sum2),
-            run_time=1
-        )
-        self.play(
-            FadeIn(u2_con),
+            FadeIn(u_direct),
             FadeIn(Plant),
             FadeIn(y_con),
             run_time=1
@@ -140,16 +132,60 @@ class control_diagram_v1(Scene):
             FadeIn(feedback),
             run_time=1
         )
-        self.wait(1.0)
+        # Save original coordinates for connection lines to prevent mutation during ReplacementTransforms
+        u_direct_start, u_direct_end = u_direct.arrow.get_start(), u_direct.arrow.get_end()
+        u1_con_start, u1_con_end = u1_con.arrow.get_start(), u1_con.arrow.get_end()
+
+        self.wait(1.5)
         
-        # Fade in the feedforward path
+        # Transition 1: Transform direct connection into feedforward branch + sum2
         self.play(
-            FadeIn(feedforward_in),
-            FadeIn(C_ff),
-            run_time=1
-        )
-        self.play(
-            FadeIn(feedforward_out),
-            run_time=1
+            ReplacementTransform(u_direct, u1_con),
+            FadeIn(sum2),
+            FadeIn(u2_con),
+            ReplacementTransform(r1_con.copy(), feedforward_in),
+            ReplacementTransform(C_fb.copy(), C_ff),
+            ReplacementTransform(u1_con.copy(), feedforward_out),
+            run_time=1.5
         )
         self.wait(2.0)
+
+        # Restore original coordinates of u_direct before morphing u1_con back into it
+        u_direct.arrow.put_start_and_end_on(u_direct_start, u_direct_end)
+
+        # Transition 2: Transform summing junction 2 setup back to direct connection, and fade out feedforward path
+        self.play(
+            ReplacementTransform(u1_con, u_direct),
+            FadeOut(sum2),
+            FadeOut(u2_con),
+            FadeOut(feedforward_in),
+            FadeOut(C_ff),
+            FadeOut(feedforward_out),
+            run_time=1.5
+        )
+        self.wait(2.0)
+
+        # Restore original coordinates of u1_con before morphing u_direct back into it
+        u1_con.arrow.put_start_and_end_on(u1_con_start, u1_con_end)
+
+        # Transition 3: Transform direct connection back into feedforward branch + sum2
+        self.play(
+            ReplacementTransform(u_direct, u1_con),
+            FadeIn(sum2),
+            FadeIn(u2_con),
+            ReplacementTransform(r1_con.copy(), feedforward_in),
+            ReplacementTransform(C_fb.copy(), C_ff),
+            ReplacementTransform(u1_con.copy(), feedforward_out),
+            run_time=1.5
+        )
+        self.wait(1.0)
+
+        # 5. Play Signal Flow Animation at the very end (White dots, 12 seconds duration)
+        cs.animate_signals(
+            self,
+            setpoint, sum1, C_fb, sum2, Plant,
+            color=WHITE,
+            feedback_color=WHITE,
+            feedforward_color=WHITE,
+            duration=12.0
+        )
